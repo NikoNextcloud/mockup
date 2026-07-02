@@ -2,37 +2,17 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { useCallback, useEffect, useState } from 'react';
-import { hasApiKey } from '../services/apiKey';
+import { useCallback, useState } from 'react';
 
+// With the Vercel proxy the browser never needs a key.
+// The dialog is shown only when the API reports a missing/invalid server key.
 export const useApiKey = () => {
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
 
-  const validateApiKey = useCallback(async (): Promise<boolean> => {
-    // Always allow proceeding — the app has a full local canvas fallback.
-    // Show the dialog once if no key is stored yet.
-    return true;
-  }, []);
-
-  // On first visit (no key stored and not dismissed before), show the dialog
-  useEffect(() => {
-    try {
-      const dismissed = localStorage.getItem('gemini_key_dialog_dismissed');
-      if (!hasApiKey() && !dismissed) {
-        setShowApiKeyDialog(true);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  const validateApiKey = useCallback(async (): Promise<boolean> => true, []);
 
   const handleApiKeyDialogContinue = useCallback(async () => {
     setShowApiKeyDialog(false);
-    try {
-      localStorage.setItem('gemini_key_dialog_dismissed', '1');
-    } catch {
-      // ignore
-    }
   }, []);
 
   return {

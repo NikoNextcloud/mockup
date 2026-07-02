@@ -448,6 +448,7 @@ export default function App() {
       console.warn('Model not found - likely a billing/key issue');
       shouldOpenDialog = true;
     } else if (
+      errorMessage.includes('GEMINI_API_KEY_MISSING') ||
       errorMessage.includes('API_KEY_INVALID') ||
       errorMessage.includes('API key not valid') ||
       errorMessage.includes('PERMISSION_DENIED') || 
@@ -841,7 +842,6 @@ export default function App() {
            </div>
            <div className="flex items-center gap-4">
               <Button size="sm" variant="ghost" icon={<Sparkles size={16}/>}>Credits: ∞</Button>
-              <Button size="sm" variant="ghost" icon={<Zap size={16}/>} onClick={() => setShowApiKeyDialog(true)}>API Key</Button>
            </div>
         </div>
 

@@ -2,8 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { GoogleGenAI, Modality } from "@google/genai";
-import { getStoredApiKey } from "./apiKey";
+import { callGemini, extractText, extractImageDataUrl } from "./geminiClient";
 import { Asset, PlacedLayer } from "../types";
 
 /**
@@ -553,11 +552,6 @@ export const generateMockupReview = async (
   userPrompt: string
 ): Promise<string> => {
   try {
-    const apiKey = getStoredApiKey();
-    const hasApiKey = !!apiKey;
-    if (!hasApiKey) return "### Premium Design Mockup\n\nDesigned instantly with precision. Connect your Gemini API Key in Settings to generate custom AI marketing descriptions, slogans, and design insights!";
-
-    const ai = new GoogleGenAI({ apiKey: apiKey! });
     const model = 'gemini-2.5-flash';
 
     const promptText = `
@@ -572,12 +566,8 @@ export const generateMockupReview = async (
     Format your response in beautiful, clean markdown with clear headers and bullet points. Keep it professional.
     `;
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: promptText,
-    });
-
-    return response.text || "Failed to generate AI description.";
+    const parts = await callGemini(model, [{ text: promptText }]);
+    return extractText(parts) || "Failed to generate AI description.";
   } catch (err) {
     console.warn("AI review generation failed:", err);
     return "### Custom Designed Mockup\n\nCrafted using high-fidelity local layout mapping and blending. Product visualization complete.";
@@ -593,13 +583,7 @@ export const generateMockup = async (
   layers: { asset: Asset; placement: PlacedLayer }[],
   instruction: string
 ): Promise<string> => {
-  const apiKey = getStoredApiKey();
-  const hasApiKey = !!apiKey;
-  
-  if (hasApiKey) {
-    try {
-      // Try using the lite image generator first
-      const ai = new GoogleGenAI({ apiKey: apiKey! });
+  try {
       const model = 'gemini-2.5-flash-image';
  
       // 1. Add Product Base
@@ -643,27 +627,13 @@ export const generateMockup = async (
  
       parts.push({ text: finalPrompt });
  
-      const response = await ai.models.generateContent({
-        model,
-        contents: { parts },
-        config: {
-          responseModalities: [Modality.IMAGE],
-        },
-      });
- 
-      const candidates = response.candidates;
-      if (candidates && candidates[0]?.content?.parts) {
-          for (const part of candidates[0].content.parts) {
-              if (part.inlineData && part.inlineData.data) {
-                   return `data:image/png;base64,${part.inlineData.data}`;
-              }
-          }
-      }
+      const outParts = await callGemini(model, parts, { imageOutput: true });
+      const dataUrl = extractImageDataUrl(outParts);
+      if (dataUrl) return dataUrl;
       throw new Error("No image data found in response");
  
-    } catch (error) {
-      console.warn("Premium image API failed or requires billing. Falling back to high-fidelity local canvas compositor.", error);
-    }
+  } catch (error) {
+    console.warn("Gemini image API failed (no key / quota / error). Falling back to local canvas compositor.", error);
   }
 
   // Fallback to local canvas compositing
@@ -674,41 +644,20 @@ export const generateMockup = async (
  * Generates a new logo or product base using AI if available, or falls back to local high-fidelity generator.
  */
 export const generateAsset = async (prompt: string, type: 'logo' | 'product'): Promise<string> => {
-  const apiKey = getStoredApiKey();
-  const hasApiKey = !!apiKey;
-  
-  if (hasApiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey: apiKey! });
+  try {
       const model = 'gemini-2.5-flash-image';
       
       const enhancedPrompt = type === 'logo' 
           ? `A high-quality, professional vector-style logo design of a ${prompt}. Isolated on a pure white background. Minimalist and clean, single distinct logo.`
           : `Professional studio product photography of a single ${prompt}. Ghost mannequin style or flat lay. Front view, isolated on neutral background. High resolution, photorealistic. Single object only, no stacks, no duplicates.`;
  
-      const response = await ai.models.generateContent({
-          model,
-          contents: {
-              parts: [{ text: enhancedPrompt }]
-          },
-          config: {
-              responseModalities: [Modality.IMAGE],
-          }
-      });
- 
-      const candidates = response.candidates;
-      if (candidates && candidates[0]?.content?.parts) {
-          for (const part of candidates[0].content.parts) {
-              if (part.inlineData && part.inlineData.data) {
-                   return `data:image/png;base64,${part.inlineData.data}`;
-              }
-          }
-      }
+      const outParts = await callGemini(model, [{ text: enhancedPrompt }], { imageOutput: true });
+      const dataUrl = extractImageDataUrl(outParts);
+      if (dataUrl) return dataUrl;
       throw new Error("No image generated");
  
-    } catch (error) {
-        console.warn(`Premium asset generation failed for ${type}. Falling back to high-fidelity local template engine.`, error);
-    }
+  } catch (error) {
+      console.warn(`AI asset generation failed for ${type}. Falling back to local template engine.`, error);
   }
 
   // Beautiful local asset generator fallback
@@ -726,12 +675,7 @@ export const generateRealtimeComposite = async (
     compositeImageBase64: string,
     prompt: string = "Make this look like a real photo"
   ): Promise<string> => {
-    const apiKey = getStoredApiKey();
-    const hasApiKey = !!apiKey;
-    
-    if (hasApiKey) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: apiKey! });
+    try {
         const model = 'gemini-2.5-flash-image';
     
         const parts = [
@@ -750,27 +694,13 @@ export const generateRealtimeComposite = async (
           },
         ];
     
-        const response = await ai.models.generateContent({
-          model,
-          contents: { parts },
-          config: {
-            responseModalities: [Modality.IMAGE],
-          },
-        });
-    
-        const candidates = response.candidates;
-        if (candidates && candidates[0]?.content?.parts) {
-            for (const part of candidates[0].content.parts) {
-                if (part.inlineData && part.inlineData.data) {
-                     return `data:image/png;base64,${part.inlineData.data}`;
-                }
-            }
-        }
+        const outParts = await callGemini(model, parts, { imageOutput: true });
+        const dataUrl = extractImageDataUrl(outParts);
+        if (dataUrl) return dataUrl;
         throw new Error("No image data found in response");
     
-      } catch (error) {
-        console.warn("Premium AR Composite failed. Returning base composite.", error);
-      }
+    } catch (error) {
+        console.warn("AR Composite via API failed. Returning base composite.", error);
     }
 
     return compositeImageBase64;

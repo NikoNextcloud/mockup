@@ -1,29 +1,21 @@
 # SKU Mockup Foundry — Product Mockup Visualization
 
 AI студио за фотореалистични продуктови мокъпи (тениски, чаши и др.) с лога.
-Работи изцяло в браузъра — подходящо за **GitHub Pages**.
+Хостинг: **GitHub (код) + Vercel (деплой)**.
 
-## Как работи API-то (безплатно)
+## Архитектура
 
-- При първо отваряне приложението пита за **безплатен Gemini API ключ** от
-  [Google AI Studio](https://aistudio.google.com/apikey) (не иска карта).
-- Ключът се пази **само в localStorage на браузъра** — не се качва никъде.
-- Използвани модели (безплатен tier):
-  - `gemini-2.5-flash-image` — генериране на мокъпи, лога и продуктови снимки
-  - `gemini-2.5-flash` — маркетингови описания
-- **Без ключ** приложението пак работи: вграден локален canvas композитор
-  (блендинг, сенки, позициониране) + локален генератор на лога.
+- Фронтенд: React + Vite (статичен)
+- `api/gemini.ts`: Vercel Serverless функция — прокси към Gemini API.
+  **Ключът стои само във Vercel env** (`GEMINI_API_KEY`), никога в браузъра.
+- Модели (безплатен tier): `gemini-2.5-flash-image` (мокъпи/лога/продукти),
+  `gemini-2.5-flash` (маркетингови описания)
+- Без ключ / изчерпан лимит → автоматичен fallback към вградения локален
+  canvas композитор, приложението винаги работи.
 
-## Локално пускане
+## Деплой (стъпка по стъпка)
 
-```bash
-npm install
-npm run dev
-```
-
-## Деплой в GitHub Pages
-
-1. Създай ново repo и качи файловете:
+1. **GitHub** — качи кода:
    ```bash
    git init
    git add .
@@ -32,13 +24,30 @@ npm run dev
    git remote add origin https://github.com/ТВОЯ_ПОТРЕБИТЕЛ/ИМЕ_НА_REPO.git
    git push -u origin main
    ```
-2. В GitHub: **Settings → Pages → Source: GitHub Actions**
-3. Готово — workflow-ът `.github/workflows/deploy.yml` билдва и публикува
-   автоматично при всеки push към `main`.
 
-## Бележки за безплатния лимит
+2. **Vercel**:
+   - vercel.com → **Add New → Project** → Import на repo-то от GitHub
+   - Framework се разпознава автоматично (Vite) — нищо не пипай
+   - Преди Deploy (или после в Settings): **Environment Variables** →
+     - Name: `GEMINI_API_KEY`
+     - Value: безплатен ключ от https://aistudio.google.com/apikey (без карта)
+   - **Deploy**
 
-Безплатният tier на Gemini има дневен лимит на заявките за image модела
-(ограничен брой генерации на ден, нулира се в полунощ Pacific време).
-При изчерпан лимит или невалиден ключ приложението автоматично минава
-на локалния композитор, така че никога не спира да работи.
+3. Всеки следващ `git push` към `main` → автоматичен нов деплой.
+
+## Локална разработка
+
+```bash
+npm install
+npx vercel dev        # пуска и фронтенда, и /api функцията
+```
+(за `vercel dev` сложи ключа в `.env` като `GEMINI_API_KEY=...` или
+`vercel env pull`). Само `npm run dev` също работи, но без AI — само
+локалния композитор.
+
+## Ограничения
+
+- Безплатният Gemini tier има дневен лимит на image заявките
+  (нулира се в полунощ Pacific). При лимит → локален режим автоматично.
+- Vercel serverless приема тела до ~4.5MB — качвай снимки с разумен
+  размер (под ~3MB), иначе заявката към AI ще падне към локалния режим.

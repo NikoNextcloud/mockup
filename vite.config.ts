@@ -3,8 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  // Relative base so the build works on GitHub Pages under any repo name
-  base: './',
+  base: '/',
   server: {
     port: 3000,
     host: '0.0.0.0',
